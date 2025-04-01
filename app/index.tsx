@@ -1,7 +1,16 @@
-import React, { useState } from "react";
-import { View, Text, Button, FlatList, Image, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useState, useRef } from "react"; 
+import { View, Text, FlatList, Image, TouchableOpacity, Modal, TextInput, Button, StyleSheet } from "react-native";
+import { Menu, Provider } from 'react-native-paper';
+import { Formik } from 'formik';
+import * as Yup from 'yup';
 
-const items = [
+interface Item {
+  id: string;
+  title: string;
+  image: string;
+}
+
+const initialItems: Item[] = [
   { id: '1', title: "Інтерстеллар", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQ7iJGkbpGBcG_kCUquXQUpw-SFmeUr4NHKQ&s" },
   { id: '2', title: "Темний лицар", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYvZ9sOFk3pzMHRtGq6yg-CuQn7PoEmTjQ4w&s" },
   { id: '3', title: "Віднесені вітром", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTiFIErKJyU3vDGfnqXnNO8wq58KyZitk9NxA&s" },
@@ -24,45 +33,105 @@ const items = [
   { id: '20', title: "Кандидат", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQgFfNdvtiVSCBcg6FbidmU9s9b9TosdTPHxw&s" }
 ];
 
+
 export default function KioskApp() {
-  const [screen, setScreen] = useState("list");
-  const [darkTheme, setDarkTheme] = useState(false);
+  const [screen, setScreen] = useState<string>("list");
+  const [items, setItems] = useState<Item[]>(initialItems);
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [menuVisible, setMenuVisible] = useState<boolean>(false);
+  const [darkTheme, setDarkTheme] = useState<boolean>(false);
+  const menuRef = useRef<View>(null);
+
+  // Додати фільм
+  const addItem = (values: { title: string; image: string }, actions: any) => {
+    const newItem: Item = { id: Date.now().toString(), title: values.title, image: values.image };
+    setItems([...items, newItem]);
+    actions.resetForm();
+    setScreen("list");
+  };
+
+  // Видалити фільм
+  const removeItem = (id: string) => {
+    setItems(items.filter(item => item.id !== id));
+  };
 
   return (
-    <View style={[styles.container, darkTheme && styles.darkBackground]}>
-      <View style={styles.navbar}>
-        <TouchableOpacity
-          style={[styles.navButton, screen === "list" && styles.activeButton]}
-          onPress={() => setScreen("list")}
-        >
-          <Text style={styles.navText}>🎬 Список фільмів</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.navButton, screen === "settings" && styles.activeButton]}
-          onPress={() => setScreen("settings")}
-        >
-          <Text style={styles.navText}>⚙️ Налаштування</Text>
-        </TouchableOpacity>
-      </View>
-
-      {screen === "list" ? (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.item}>
-              <Image source={{ uri: item.image }} style={styles.image} />
-              <Text style={styles.text}>{item.title}</Text>
-            </View>
-          )}
-        />
-      ) : (
-        <View style={styles.settings}>
-          <Text style={styles.text}>Тема додатку</Text>
-          <Button title={darkTheme ? "🌞 Світла тема" : "🌙 Темна тема"} onPress={() => setDarkTheme(!darkTheme)} />
+    <Provider>
+      <View style={[styles.container, darkTheme && styles.darkBackground]}>
+        <View ref={menuRef}>
+          <Menu
+            visible={menuVisible}
+            onDismiss={() => setMenuVisible(false)}
+            anchor={
+              <TouchableOpacity style={styles.menuButton} onPress={() => setMenuVisible(true)}>
+                <Text style={styles.menuButtonText}>Меню</Text>
+              </TouchableOpacity>
+            }
+          >
+            <Menu.Item onPress={() => { setScreen("list"); setMenuVisible(false); }} title="Список фільмів" />
+            <Menu.Item onPress={() => { setScreen("add"); setMenuVisible(false); }} title="Додати фільм" />
+            <Menu.Item onPress={() => { setScreen("settings"); setMenuVisible(false); }} title="Налаштування" />
+          </Menu>
         </View>
-      )}
-    </View>
+
+        {screen === "list" && (
+          <FlatList
+            data={items}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => { setSelectedItem(item); setModalVisible(true); }}>
+                <View style={styles.item}>
+                  <Image source={{ uri: item.image }} style={styles.image} />
+                  <Text style={styles.text}>{item.title}</Text>
+                  <View style={styles.deleteButtonContainer}>
+                    <Button title="❌" onPress={() => removeItem(item.id)} />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        )}
+
+        {screen === "add" && (
+          <Formik
+            initialValues={{ title: "", image: "" }}
+            validationSchema={Yup.object({
+              title: Yup.string().required("Обов'язкове поле"),
+              image: Yup.string().url("Некоректний URL").required("Обов'язкове поле"),
+            })}
+            onSubmit={addItem}
+          >
+            {({ handleChange, handleSubmit, values, errors }) => (
+              <View style={{ padding: 20 }}>
+                <TextInput placeholder="Назва фільму" value={values.title} onChangeText={handleChange("title")} />
+                {errors.title && <Text style={{ color: "red" }}>{errors.title}</Text>}
+                <TextInput placeholder="URL зображення" value={values.image} onChangeText={handleChange("image")} />
+                {errors.image && <Text style={{ color: "red" }}>{errors.image}</Text>}
+                <Button title="Додати" onPress={() => handleSubmit()} />
+              </View>
+            )}
+          </Formik>
+        )}
+
+        {screen === "settings" && (
+          <View style={styles.settings}>
+            <Text style={styles.text}>Тема додатку</Text>
+            <Button title={darkTheme ? "🌞 Світла тема" : "🌙 Темна тема"} onPress={() => setDarkTheme(!darkTheme)} />
+          </View>
+        )}
+
+        <Modal visible={modalVisible} transparent={true}>
+          <View style={styles.modal}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>{selectedItem?.title}</Text>
+              <Image source={{ uri: selectedItem?.image }} style={styles.modalImage} />
+              <Button title="Закрити" onPress={() => setModalVisible(false)} />
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </Provider>
   );
 }
 
@@ -75,24 +144,16 @@ const styles = StyleSheet.create({
   darkBackground: {
     backgroundColor: "#2c2c2c",
   },
-  navbar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 15,
+  menuButton: {
     backgroundColor: "#007bff",
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  navButton: {
     padding: 10,
+    borderRadius: 5,
+    marginLeft: 15,
+    marginRight: 15,
+    alignItems: "center",
   },
-  activeButton: {
-    borderBottomWidth: 2,
-    borderBottomColor: "#ffffff",
-  },
-  navText: {
-    fontSize: 18,
-    color: "#ffffff",
+  menuButtonText: {
+    color: "#fff",
     fontWeight: "bold",
   },
   item: {
@@ -107,6 +168,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    justifyContent: "space-between",
   },
   image: {
     width: 60,
@@ -123,5 +185,28 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  modal: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  modalImage: {
+    width: 150,
+    height: 150,
+    marginVertical: 10,
+  },
+  deleteButtonContainer: {
+    marginLeft: 'auto', 
   },
 });
