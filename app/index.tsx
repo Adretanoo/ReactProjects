@@ -33,7 +33,6 @@ const initialItems: Item[] = [
   { id: '20', title: "Кандидат", image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQgFfNdvtiVSCBcg6FbidmU9s9b9TosdTPHxw&s" }
 ];
 
-
 export default function KioskApp() {
   const [screen, setScreen] = useState<string>("list");
   const [items, setItems] = useState<Item[]>(initialItems);
@@ -41,6 +40,7 @@ export default function KioskApp() {
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
   const [darkTheme, setDarkTheme] = useState<boolean>(false);
+  const [fontSize, setFontSize] = useState(16);
   const menuRef = useRef<View>(null);
 
   // Додати фільм
@@ -83,7 +83,7 @@ export default function KioskApp() {
               <TouchableOpacity onPress={() => { setSelectedItem(item); setModalVisible(true); }}>
                 <View style={styles.item}>
                   <Image source={{ uri: item.image }} style={styles.image} />
-                  <Text style={styles.text}>{item.title}</Text>
+                  <Text style={[styles.text, { fontSize }]}>{item.title}</Text>
                   <View style={styles.deleteButtonContainer}>
                     <Button title="❌" onPress={() => removeItem(item.id)} />
                   </View>
@@ -116,15 +116,21 @@ export default function KioskApp() {
 
         {screen === "settings" && (
           <View style={styles.settings}>
-            <Text style={styles.text}>Тема додатку</Text>
+            <Text style={[styles.text, { fontSize }]}>Налаштування</Text>
             <Button title={darkTheme ? "🌞 Світла тема" : "🌙 Темна тема"} onPress={() => setDarkTheme(!darkTheme)} />
+            
+            <Text style={[styles.text, { fontSize }]}>Розмір шрифту: {fontSize}px</Text>
+            <View style={styles.row}>
+              <Button title="➖" onPress={() => setFontSize(fontSize > 12 ? fontSize - 2 : fontSize)} />
+              <Button title="➕" onPress={() => setFontSize(fontSize < 30 ? fontSize + 2 : fontSize)} />
+            </View>
           </View>
         )}
 
         <Modal visible={modalVisible} transparent={true}>
           <View style={styles.modal}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{selectedItem?.title}</Text>
+              <Text style={[styles.modalTitle, { fontSize }]}>{selectedItem?.title}</Text>
               <Image source={{ uri: selectedItem?.image }} style={styles.modalImage} />
               <Button title="Закрити" onPress={() => setModalVisible(false)} />
             </View>
@@ -185,6 +191,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
   },
   modal: {
     flex: 1,
